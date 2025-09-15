@@ -36,15 +36,15 @@ void generate_byte(uint8_t target, uint8_t data[3]) {
   data[2] |= (target & 0b00000001) ? 0b00000110 : 0b00000100;
 }
 
-void generate_color(uint8_t red, uint8_t green, uint8_t blue, uint8_t data[9]) {
-  generate_byte(green, data);
-  generate_byte(red, data + 3);
-  generate_byte(blue, data + 6);
+void generate_color(uint8_t r, uint8_t g, uint8_t b, uint8_t data[9]) {
+  generate_byte(g, data);
+  generate_byte(r, data + 3);
+  generate_byte(b, data + 6);
 }
 
-void generate_all(uint8_t red, uint8_t green, uint8_t blue, uint8_t *data) {
+void generate_all(uint8_t r, uint8_t g, uint8_t b, uint8_t *data) {
   for (int i = 0; i < LEDS; i++) {
-    generate_color(red, green, blue, data + i * 9);
+    generate_color(r, g, b, data + i * 9);
   }
 }
 
@@ -115,6 +115,7 @@ static const uint8_t s_midi_hs_cfg_desc[] = {
 
 // LEDs
 static uint8_t led_data[LEDS * 9 + 1];
+static uint8_t led_state[LEDS];
 static spi_device_handle_t led_spi;
 static spi_transaction_t led_transcation = {
     .length = sizeof(led_data) * 8 + 8,
@@ -122,9 +123,18 @@ static spi_transaction_t led_transcation = {
     .rx_buffer = NULL,
     .user = (void *)0,
 };
-esp_err_t led_set(uint8_t red, uint8_t green, uint8_t blue, uint8_t index) {
-  printf("LED: %d %d %d %d\n", red, green, blue, index);
-  generate_color(red, green, blue, led_data + index * 9);
+esp_err_t led_set(uint8_t r, uint8_t g, uint8_t b, uint8_t index) {
+  printf("LED[%d]: r(%d) g(%d) b(%d)\n", index, r, g, b);
+  led_state[index] =
+      ((r ? 1 : 0) << 0) | ((g ? 1 : 0) << 1) | ((b ? 1 : 0) << 2);
+  generate_color(r, g, b, led_data + index * 9);
+  return spi_device_polling_transmit(led_spi, &led_transcation);
+}
+
+esp_err_t led_all_off(void) {
+  printf("LED: off\n");
+  memset(led_state, 0, sizeof(led_state));
+  generate_all(0, 0, 0, led_data);
   return spi_device_polling_transmit(led_spi, &led_transcation);
 }
 
@@ -207,10 +217,7 @@ void app_main(void) {
             // turn off the LED
             if (note == 88) {
               // all LEDs
-              printf("LED: all off\n");
-              generate_all(0, 0, 0, led_data);
-              ret = spi_device_polling_transmit(led_spi, &led_transcation);
-              ESP_ERROR_CHECK(ret);
+              led_all_off();
             } else {
               led_set(0, 0, 0, led);
             }
@@ -239,6 +246,16 @@ void app_main(void) {
           if (packet[2] == 7) {
             // volume as brightness
             brightness = 255 * pow(packet[3] / 127., 2);
+            printf("LED: brightness %d\n", brightness);
+            for (uint8_t i = 0; i < LEDS; i++) {
+              if (led_state[i]) {
+                generate_color(brightness * ((led_state[i] & 0b001) >> 0),
+                               brightness * ((led_state[i] & 0b010) >> 1),
+                               brightness * ((led_state[i] & 0b100) >> 2),
+                               led_data + i * 9);
+              }
+            }
+            spi_device_polling_transmit(led_spi, &led_transcation);
           }
         }
       }
