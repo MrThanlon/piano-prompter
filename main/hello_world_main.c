@@ -19,7 +19,7 @@
 
 #define PIN GPIO_NUM_48
 #define LEDS 74
-#define BRIGHT 100
+#define BRIGHTNESS 3
 #define PERIOD 3000
 
 void generate_byte(uint8_t target, uint8_t data[3]) {
@@ -190,7 +190,7 @@ void app_main(void) {
   // }
 
   uint8_t packet[4];
-  uint8_t brightness = 100;
+  uint8_t brightness = BRIGHTNESS;
   while (1) {
     if (tud_midi_available()) {
       if (tud_midi_packet_read(packet)) {
@@ -201,14 +201,30 @@ void app_main(void) {
         if (cin == 0x8 || cin == 0x9) {
           uint8_t channel = packet[1] & 0x0f;
           uint8_t note = packet[2] - 21;
-          uint8_t vel = packet[3];
           uint8_t led = 88 - note;
+
+          if (channel == 3) {
+            // turn off the LED
+            if (note == 88) {
+              // all LEDs
+              printf("LED: all off\n");
+              generate_all(0, 0, 0, led_data);
+              ret = spi_device_polling_transmit(led_spi, &led_transcation);
+              ESP_ERROR_CHECK(ret);
+            } else {
+              led_set(0, 0, 0, led);
+            }
+            continue;
+          }
+
+          uint8_t vel = packet[3];
           if ((packet[1] & 0xf0) == 0x80 || (vel == 0)) {
             // note off
             led_set(0, 0, 0, led);
           } else if ((packet[1] & 0xf0) == 0x90) {
             // note on
-            // channel 0 for red, channel 1 for green, channel 2 for blue
+            // channel 0 for red, channel 1 for green, channel 2 for blue,
+            // channel 3 for off
 
             if (channel == 0) {
               led_set(brightness, 0, 0, led);
