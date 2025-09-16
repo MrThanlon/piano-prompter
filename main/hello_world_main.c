@@ -75,8 +75,8 @@ enum usb_endpoints {
 static const char *s_str_desc[5] = {
     // array of pointer to string descriptors
     (char[]){0x09, 0x04}, // 0: is supported language is English (0x0409)
-    "Piano Hinter",       // 1: Manufacturer
-    "Piano Hinter",       // 2: Product
+    "Piano Prompter",     // 1: Manufacturer
+    "Piano Prompter",     // 2: Product
     "123456",             // 3: Serials, should use chip ID
     "MIDI device",        // 4: MIDI
 };
@@ -90,7 +90,7 @@ static const char *s_str_desc[5] = {
 static const uint8_t s_midi_cfg_desc[] = {
     // Configuration number, interface count, string index, total length,
     // attribute, power in mA
-    TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, TUSB_DESCRIPTOR_TOTAL_LEN, 0, 100),
+    TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, TUSB_DESCRIPTOR_TOTAL_LEN, 0, 500),
 
     // Interface number, string index, EP Out & EP In address, EP size
     TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 4, EPNUM_MIDI, (0x80 | EPNUM_MIDI), 64),
